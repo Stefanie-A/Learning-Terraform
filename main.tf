@@ -16,6 +16,7 @@ provider "aws" {
 variable "server_port"{
     description = "Server port for HTTP request "
     type = number
+    default = 8080
 
 }
 
@@ -54,9 +55,30 @@ resource "aws_instance" "web_server"{
     instance_type = "t2.micro"
     vpc_security_group_ids = [aws_security_group.instance.id]
     tags = {
-        Name = "fox"
+        Name = "mox"
     }
 
+}
+
+resource "aws_launch_configuration" "web_server" {
+image_id = "ami-0fb653ca2d3203ac1"
+instance_type = "t2.micro"
+security_groups = [aws_security_group.instance.id]
+
+lifecycle {
+create_before_destroy = true
+}
+}
+
+resource "aws_autoscaling_group" "web_server" {
+launch_configuration = aws_launch_configuration.web_server.name
+min_size = 2
+max_size = 10
+tag {
+key = "Name"
+value = "terraform-asg-example"
+propagate_at_launch = true
+}
 }
 
 output "public_ip" {
