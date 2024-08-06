@@ -16,7 +16,7 @@ provider "aws" {
 variable "server_port"{
     description = "Server port for HTTP request "
     type = number
-    default = 8080
+    default = 22
 
 }
 
@@ -60,8 +60,12 @@ resource "aws_instance" "web_server"{
 
 }
 
+data "aws_vpc" "default" {
+default = true
+}
+
 resource "aws_launch_configuration" "web_server" {
-image_id = "ami-0fb653ca2d3203ac1"
+image_id = "ami-03b425a3efaaad179"
 instance_type = "t2.micro"
 security_groups = [aws_security_group.instance.id]
 
@@ -70,8 +74,16 @@ create_before_destroy = true
 }
 }
 
+data "aws_subnets" "default" {
+filter {
+name = "vpc-id"
+values = [data.aws_vpc.default.id]
+}
+}
+
 resource "aws_autoscaling_group" "web_server" {
 launch_configuration = aws_launch_configuration.web_server.name
+vpc_zone_identifier = data.aws_subnets.default.ids
 min_size = 2
 max_size = 10
 tag {
