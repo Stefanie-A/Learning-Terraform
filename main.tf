@@ -19,7 +19,6 @@ variable "server_port"{
     default = 22
 
 }
-
 data "aws_ami" "ubuntu" {
   most_recent = true
 
@@ -41,6 +40,10 @@ data "aws_ami" "ubuntu" {
   owners = ["099720109477"] # Canonical
 }
 
+data "aws_vpc" "default" {
+default = true
+}
+
 resource "aws_security_group" "instance"{
     name = "fox"
     ingress {
@@ -49,6 +52,14 @@ resource "aws_security_group" "instance"{
         protocol = "tcp"
         cidr_blocks = ["0.0.0.0/0"]
     }
+
+    egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+}
+
 }
 resource "aws_instance" "web_server"{
     ami = data.aws_ami.ubuntu.id
@@ -58,10 +69,6 @@ resource "aws_instance" "web_server"{
         Name = "mox"
     }
 
-}
-
-data "aws_vpc" "default" {
-default = true
 }
 
 resource "aws_launch_configuration" "web_server" {
@@ -82,15 +89,15 @@ values = [data.aws_vpc.default.id]
 }
 
 resource "aws_autoscaling_group" "web_server" {
-launch_configuration = aws_launch_configuration.web_server.name
-vpc_zone_identifier = data.aws_subnets.default.ids
-min_size = 2
-max_size = 10
-tag {
-key = "Name"
-value = "terraform-asg-example"
-propagate_at_launch = true
-}
+  launch_configuration = aws_launch_configuration.web_server.name
+  vpc_zone_identifier = data.aws_subnets.default.ids
+  min_size = 2
+  max_size = 10
+  tag {
+    key = "Name"
+    value = "pox"
+    propagate_at_launch = true
+  }
 }
 
 output "public_ip" {
