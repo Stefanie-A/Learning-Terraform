@@ -19,6 +19,7 @@ variable "server_port"{
     default = 22
 
 }
+
 data "aws_ami" "ubuntu" {
   most_recent = true
 
@@ -65,6 +66,7 @@ resource "aws_instance" "web_server"{
     ami = data.aws_ami.ubuntu.id
     instance_type = "t2.micro"
     vpc_security_group_ids = [aws_security_group.instance.id]
+    user_data = file("init.sh")
     tags = {
         Name = "mox"
     }
@@ -72,7 +74,7 @@ resource "aws_instance" "web_server"{
 }
 
 resource "aws_launch_configuration" "web_server" {
-image_id = "ami-03b425a3efaaad179"
+image_id        = data.aws_ami.ubuntu.id
 instance_type = "t2.micro"
 security_groups = [aws_security_group.instance.id]
 
@@ -98,6 +100,34 @@ resource "aws_autoscaling_group" "web_server" {
     value = "pox"
     propagate_at_launch = true
   }
+}
+
+resource "aws_lb" "myloadbal" {
+  name = "hox"
+  load_balancer_type = "application"
+  subnets = data.aws_subnets.default.ids
+  security_groups =[aws_security_group.alb.id]
+}
+
+resource "aws_lb_listener" "http" {
+  load_balancer_arn = aws_lb.myloadbal.arn
+  port = 80
+  protocol = "HTTP"
+
+  default_action {
+    type = "fixed-respomse"
+
+    fixed_response {
+      content_type = "text/plain"
+      message_body = "404: page not found"
+      status_code = 404
+    }
+  }
+
+}
+resource "aws_lb_target_group" "name" {
+  name = "target-group"
+  port = ""
 }
 
 output "public_ip" {
