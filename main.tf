@@ -48,8 +48,8 @@ default = true
 resource "aws_security_group" "instance"{
     name = "fox"
     ingress {
-        from_port = var.server_port
-        to_port = var.server_port
+        from_port = 80
+        to_port = 80
         protocol = "tcp"
         cidr_blocks = ["0.0.0.0/0"]
     }
@@ -66,7 +66,8 @@ resource "aws_instance" "web_server"{
     ami = data.aws_ami.ubuntu.id
     instance_type = "t2.micro"
     vpc_security_group_ids = [aws_security_group.instance.id]
-    user_data = file("init.sh")
+    # user_data = file("init.sh")
+    # user_data_replace_on_change = true
     tags = {
         Name = "mox"
     }
@@ -93,6 +94,8 @@ values = [data.aws_vpc.default.id]
 resource "aws_autoscaling_group" "web_server" {
   launch_configuration = aws_launch_configuration.web_server.name
   vpc_zone_identifier = data.aws_subnets.default.ids
+  target_group_arns = [aws_lb_target_group.t-group.arn]
+  health_check_type = "ELB"
   min_size = 2
   max_size = 10
   tag {
@@ -106,7 +109,7 @@ resource "aws_lb" "myloadbal" {
   name = "hox"
   load_balancer_type = "application"
   subnets = data.aws_subnets.default.ids
-  security_groups =[aws_security_group.alb.id]
+  security_groups =[aws_security_group.instance.id]
 }
 
 resource "aws_lb_listener" "http" {
@@ -115,7 +118,7 @@ resource "aws_lb_listener" "http" {
   protocol = "HTTP"
 
   default_action {
-    type = "fixed-respomse"
+    type = "fixed-response"
 
     fixed_response {
       content_type = "text/plain"
@@ -125,12 +128,44 @@ resource "aws_lb_listener" "http" {
   }
 
 }
-resource "aws_lb_target_group" "name" {
+
+resource "aws_lb_target_group" "t-group" {
   name = "target-group"
-  port = ""
+  port = var.server_port
+  protocol = "HTTP"
+  vpc_id = data.aws_vpc.default.id
+
+  health_check {
+    path = "/"
+    protocol = "HTTP"
+    matcher ="200"
+    interval = 15
+    timeout = 3
+    healthy_threshold = 2
+    unhealthy_threshold = 2
+  }
 }
 
-output "public_ip" {
-    value = aws_instance.web_server.public_ip
-    description = "The public IP address of the web server"
+resource "aws_lb_listener_rule" "rule" {
+  listener_arn = aws_lb_listener.http.arn
+  priority = 100
+  condition {
+    path_pattern {
+      values = ["*"]
+    }
+  }
+  action {
+    type = "forward"
+    target_group_arn = aws_lb_target_group.t-group.arn
+  }
+}
+
+# output "public_ip" {
+#     value = aws_instance.web_server.public_ip
+#     description = "The public IP address of the web server"
+# }
+
+output "alb_dns_name" {
+  value = aws_lb.myloadbal.dns_name
+  description = "The domain name of my load balancer"
 }
